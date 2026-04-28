@@ -25,7 +25,7 @@ type Central struct {
 
 func main() {
 
-	http.HandleFunc("/", handler)
+	http.HandleFunc("/coleta", handler)
 
 	http.ListenAndServe(":8080", nil)
 }
@@ -41,7 +41,11 @@ func carregarCentrais(arquivoCfg string) ([]Central, error) {
 	sc := bufio.NewScanner(arq)
 
 	for sc.Scan() {
-		partes := strings.Split(sc.Text(), "|")
+		linha := strings.TrimSpace(sc.Text())
+		if linha == "" || strings.HasPrefix(linha, "#") {
+			continue
+		}
+		partes := strings.Split(linha, "|")
 		if len(partes) < 2 {
 			continue
 		}
@@ -64,7 +68,7 @@ func atualizarStatus(c *Central) {
 
 	for _, arq := range arquivos {
 		info, err := os.Stat(arq)
-		if err != nil {
+		if err != nil || info.IsDir() {
 			continue
 		}
 
@@ -72,7 +76,12 @@ func atualizarStatus(c *Central) {
 			maisRecente = info.ModTime()
 		}
 	}
-	c.UltimaAtualizacao = maisRecente.Format("02/01 15:04:05")
+
+	if !maisRecente.IsZero() {
+		c.UltimaAtualizacao = maisRecente.Format("02/01 15:04:05")
+	} else {
+		c.UltimaAtualizacao = "Sem arquivo"
+	}
 
 	if time.Since(maisRecente) <= time.Hour {
 		c.Status = "ok"
