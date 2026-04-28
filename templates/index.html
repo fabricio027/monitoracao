@@ -40,12 +40,16 @@
             font-size: 1.2rem;
             color: #94a3b8;
             font-weight: 400;
-            margin-bottom: 40px;
+            margin-bottom: 10px;
             border-bottom: 1px solid #1e293b;
             padding-bottom: 10px;
             width: 100%;
-            max-width: 600px;
+            /* max-width: 600px; */
             text-align: center;
+        }
+
+        h3 {
+            text-transform: uppercase;
         }
 
         /* Grid de Cards */
@@ -56,13 +60,14 @@
             gap: 10px;
             width: 100%;
             max-width: 1200px;
+            margin-bottom: 40px;
         }
 
         /* Cards Estilizados */
         .card {
             padding: 20px 15px;
             border-radius: 12px;
-            width: 120px;
+            min-width: 120px;
             text-align: center;
         }
 
@@ -96,10 +101,20 @@
 
 <body>
     <h1>Monitoração Mediação</h1>
-    <h2>Coleta</h2>
 
+    <h2>Servidores</h2>
     <div class="container">
-        {{range .}}
+        {{range .Servidores}}
+        <div class="card {{if eq .Status "RUNNING"}}ok{{else}}nok{{end}}">
+            <h3>{{.Nome}}</h3>
+            <div class="info">{{.Status}}</div>
+        </div>
+        {{end}}
+    </div>
+
+    <h2>Coleta</h2>
+    <div class="container">
+        {{range .Centrais}}
         <div class="card {{if eq .Status "ok"}}ok{{else}}nok{{end}}">
             <h3>{{.Nome}}</h3>
             <div class="info">{{.UltimaAtualizacao}}</div>

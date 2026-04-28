@@ -3,9 +3,11 @@ package main
 import (
 	"bufio"
 	"embed"
+	"fmt"
 	"html/template"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -23,11 +25,45 @@ type Central struct {
 	Status            string
 }
 
+type Servidor struct {
+	Nome   string
+	Status string
+}
+
+type Dados struct {
+	Servidores []Servidor
+	Centrais   []Central
+}
+
 func main() {
+	carregaServidores()
 
 	http.HandleFunc("/coleta", handler)
 
 	http.ListenAndServe(":8080", nil)
+}
+
+func carregaServidores() ([]Servidor, error) {
+	servidores := make([]Servidor, 0, 13)
+	comando := "sudo /opt/VRTS/bin/hastatus -sum | grep -v ONLINE | grep -v medpx16i | grep ^A | awk '{print $2,$3}'"
+	cmd := exec.Command("bash", "-c", comando)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	linhas := strings.Split(string(out), "\n")
+	for _, linha := range linhas {
+		if linha == "" {
+			continue
+		}
+		args := strings.Split(linha, " ")
+		if len(args) >= 2 {
+			servidores = append(servidores, Servidor{Nome: args[0], Status: args[1]})
+		}
+	}
+	return servidores, nil
 }
 
 func carregarCentrais(arquivoCfg string) ([]Central, error) {
@@ -58,7 +94,7 @@ func carregarCentrais(arquivoCfg string) ([]Central, error) {
 }
 
 func atualizarStatus(c *Central) {
-	arquivos, err := filepath.Glob(filepath.Join(c.Caminho, "*"))
+	arquivos, err := filepath.Glob(filepath.Join(c.Caminho, fmt.Sprintf("%s.*.gz", c.Nome)))
 	if err != nil || len(arquivos) == 0 {
 		c.Status = "nok"
 		return
@@ -92,14 +128,22 @@ func atualizarStatus(c *Central) {
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	tmpl := template.Must(template.ParseFS(content, "templates/index.html"))
+
+	Servidores, err := carregaServidores()
+	if err != nil {
+		panic(err)
+	}
+
 	Centrais, err := carregarCentrais(arquivoCfg)
 	if err != nil {
 		panic(err)
 	}
 
+	dados := Dados{Servidores: Servidores, Centrais: Centrais}
+
 	for i := range Centrais {
 		atualizarStatus(&Centrais[i])
 	}
 
-	tmpl.Execute(w, Centrais)
+	tmpl.Execute(w, dados)
 }
